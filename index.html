@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Service - Hit Hotel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #334155; }
+        
+        /* Cores Hit Hotel */
+        .bg-hit-blue { background-color: #003366; }
+        .text-hit-blue { color: #003366; }
+        .bg-hit-gold { background-color: #c5a059; }
+        .text-hit-gold { color: #c5a059; }
+
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="bg-gray-100 pb-20">
+
+    <div class="fixed bottom-2 right-2 z-50 opacity-30 hover:opacity-100 transition">
+        <button onclick="toggleAdmin()" class="bg-gray-800 text-white px-3 py-1 rounded text-xs shadow-lg">Admin</button>
+    </div>
+
+    <div id="guest-view">
+        <header class="bg-hit-blue text-white shadow-xl sticky top-0 z-40 border-b-4 border-hit-gold">
+            <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white p-1 rounded">
+                        <i class="fas fa-hotel text-hit-blue text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-xl leading-none">HIT HOTEL</h1>
+                        <p class="text-xs text-gray-300">Room Service • 14h às 21h</p>
+                    </div>
+                </div>
+                <button onclick="openCart()" class="relative p-2 bg-white text-hit-blue rounded-full shadow hover:bg-gray-100 transition">
+                    <i class="fas fa-shopping-bag text-xl"></i>
+                    <span id="cart-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="container mx-auto px-3 py-6 max-w-md" id="menu-container">
+            <div class="text-center py-10 text-gray-500">Carregando cardápio...</div>
+        </main>
+    </div>
+
+    <div id="cart-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full max-w-md h-[90vh] sm:h-auto sm:rounded-xl rounded-t-3xl shadow-2xl flex flex-col animate-[slideUp_0.3s_ease-out]">
+            <div class="bg-hit-blue text-white p-5 rounded-t-3xl flex justify-between items-center">
+                <h3 class="font-bold text-lg">Seu Pedido</h3>
+                <button onclick="closeCart()" class="hover:text-gray-300"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50"></div>
+            
+            <div class="border-t p-5 bg-white shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
+                <div class="flex justify-between font-bold text-xl text-hit-blue mb-4">
+                    <span>Total:</span> <span id="cart-total">R$ 0,00</span>
+                </div>
+                <form id="order-form" onsubmit="event.preventDefault(); sendOrder();" class="space-y-3">
+                    <div class="grid grid-cols-3 gap-3">
+                        <input type="text" id="guest-name" placeholder="Nome" required class="col-span-2 w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-hit-blue outline-none">
+                        <input type="number" id="room-number" placeholder="Quarto" required class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-hit-blue outline-none">
+                    </div>
+                    <textarea id="order-notes" placeholder="Observações (ex: ponto da carne, sem cebola...)" class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-hit-blue outline-none" rows="2"></textarea>
+                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-green-700 transition transform active:scale-95 flex justify-center items-center gap-2">
+                        <span>CONFIRMAR PEDIDO</span> <i class="fas fa-check-circle"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-view" class="hidden min-h-screen bg-gray-100 pb-10">
+        <header class="bg-gray-900 text-white p-4 shadow-lg sticky top-0 z-40">
+            <div class="container mx-auto flex justify-between items-center">
+                <div class="flex items-center gap-4">
+                    <h1 class="font-bold text-xl">Gestão Hit Hotel</h1>
+                    <nav class="flex bg-gray-800 rounded-lg p-1">
+                        <button onclick="switchAdminTab('orders')" id="tab-orders" class="px-3 py-1 rounded bg-gray-600 text-white text-sm font-bold shadow">Pedidos</button>
+                        <button onclick="switchAdminTab('reports')" id="tab-reports" class="px-3 py-1 rounded hover:bg-gray-700 text-gray-300 text-sm font-bold">Relatórios</button>
+                    </nav>
+                </div>
+                <button onclick="toggleAdmin()" class="text-sm text-gray-400 hover:text-white"><i class="fas fa-sign-out-alt"></i> Sair</button>
+            </div>
+        </header>
+
+        <main class="container mx-auto p-4 max-w-5xl">
+            
+            <div id="section-orders">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-fire mr-2 text-orange-500"></i>Fila de Produção</h2>
+                    <span id="live-indicator" class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full animate-pulse">● Ao Vivo</span>
+                </div>
+                <div id="orders-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="text-center text-gray-500 col-span-full py-10">Aguardando novos pedidos...</div>
+                </div>
+            </div>
+
+            <div id="section-reports" class="hidden space-y-6">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-chart-line mr-2 text-blue-600"></i>Desempenho</h2>
+                    <button onclick="loadReports()" class="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><i class="fas fa-sync-alt"></i> Atualizar</button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500">
+                        <p class="text-sm text-gray-500 font-bold uppercase">Hoje</p>
+                        <h3 class="text-3xl font-bold text-gray-800" id="sales-today">R$ 0,00</h3>
+                        <p class="text-xs text-gray-400 mt-1" id="orders-count-today">0 pedidos</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
+                        <p class="text-sm text-gray-500 font-bold uppercase">Mês Atual</p>
+                        <h3 class="text-3xl font-bold text-gray-800" id="sales-month">R$ 0,00</h3>
+                        <p class="text-xs text-gray-400 mt-1">Acumulado</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500">
+                        <p class="text-sm text-gray-500 font-bold uppercase">Ticket Médio</p>
+                        <h3 class="text-3xl font-bold text-gray-800" id="avg-ticket">R$ 0,00</h3>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm">
+                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">🏆 Mais Vendidos</h3>
+                        <div id="top-products-list" class="space-y-3">
+                            <p class="text-gray-400 text-sm">Carregando dados...</p>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm">
+                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">⏰ Horários de Pico (14h-22h)</h3>
+                        <div id="peak-hours-chart" class="flex items-end justify-between h-40 pt-4 space-x-1"></div>
+                        <div class="flex justify-between text-xs text-gray-400 mt-2 px-1">
+                            <span>14h</span><span>16h</span><span>18h</span><span>20h</span><span>22h</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // --- 1. CONFIGURAÇÃO FIREBASE (ATUALIZADA) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCdOqHyZNpPdvZC1RD9_OuSJeBHwPxjovQ",
+            authDomain: "cardapio-hit-hotel.firebaseapp.com",
+            projectId: "cardapio-hit-hotel",
+            storageBucket: "cardapio-hit-hotel.firebasestorage.app",
+            messagingSenderId: "107290897891",
+            appId: "1:107290897891:web:380ef50a89c27aae1e44d6"
+        };
+
+        let db;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            console.log("Firebase conectado!");
+        } catch (e) {
+            console.error("Erro ao conectar Firebase:", e);
+            alert("Erro de conexão. Verifique o console.");
+        }
+
+        // --- 2. CARDÁPIO HIT HOTEL ---
+        const menuData = [
+            {
+                category: "Lanches",
+                items: [
+                    { name: "Misto Quente", desc: "Pão de forma com presunto e queijo, levemente tostado.", price: 14.90 },
+                    { name: "Sanduíche Natural", desc: "Pão integral, frango desfiado, cenoura, alface, pickles e maionese light.", price: 18.90 },
+                    { name: "X Burguer", desc: "Pão brioche, hambúrguer artesanal 120g, queijo, alface, tomate e pickles.", price: 35.90 },
+                    { name: "X Frango", desc: "Pão brioche, hambúrguer de frango artesanal 120g, queijo, alface, tomate e pickles.", price: 29.90 },
+                    { name: "X Bacon", desc: "Pão brioche, hambúrguer 120g, bacon, queijo, alface, tomate e pickles.", price: 40.90 },
+                    { name: "X Salada", desc: "Pão brioche, hambúrguer 120g, presunto, queijo, alface, tomate e pickles.", price: 38.90 },
+                    { name: "X Egg", desc: "Pão brioche, hambúrguer 120g, ovo, presunto, queijo, alface, tomate e pickles.", price: 40.90 }
+                ]
+            },
+            {
+                category: "Pratos e Porções",
+                items: [
+                    { name: "Sopa com Torradas", desc: "Opções rotativas de sopas artesanais, servidas com torradas.", price: 18.90 },
+                    { name: "Batata Frita", desc: "Porção individual ou para compartilhar.", price: 15.90 }
+                ]
+            },
+            {
+                category: "Pizzas Individuais (20cm)",
+                items: [
+                    { name: "Pizza Calabresa (20cm)", desc: "Mussarela, calabresa fatiada e cebola.", price: 30.00 },
+                    { name: "Pizza Mussarela (20cm)", desc: "Queijo mussarela e orégano.", price: 30.00 },
+                    { name: "Pizza Marguerita (20cm)", desc: "Mussarela, tomate e manjericão.", price: 30.00 }
+                ]
+            },
+            {
+                category: "Pizzas Médias (30cm)",
+                items: [
+                    { name: "Pizza Calabresa (30cm)", desc: "Mussarela, calabresa fatiada e cebola.", price: 55.00 },
+                    { name: "Pizza Mussarela (30cm)", desc: "Queijo mussarela e orégano.", price: 55.00 },
+                    { name: "Pizza Marguerita (30cm)", desc: "Mussarela, tomate e manjericão.", price: 55.00 }
+                ]
+            },
+            {
+                category: "Bebidas",
+                items: [
+                    { name: "Água Mineral 1.5L", price: 9.00 },
+                    { name: "Água Mineral 500ml", price: 7.00 },
+                    { name: "Água com Gás 500ml", price: 7.00 },
+                    { name: "Água Tônica 350ml", price: 8.00 },
+                    { name: "H2O 500ml", price: 8.00 },
+                    { name: "Chá Ice Tea Leão", price: 8.00 },
+                    { name: "Suco Natural One", price: 7.00 },
+                    { name: "Suco Del Valle Lata", price: 7.00 },
+                    { name: "Refrigerante 350ml", price: 8.00 },
+                    { name: "Cerveja Heineken 350ml", price: 12.00 },
+                    { name: "Cerveja Amstel 350ml", price: 10.00 },
+                    { name: "Schweppes 350ml", price: 8.00 },
+                    { name: "Smirnoff Ice", price: 10.00 },
+                    { name: "Whey Protein 250ml", price: 10.00 },
+                    { name: "Red Bull 269ml", price: 15.00 },
+                    { name: "Chocolate Betânia Kids", price: 4.00 }
+                ]
+            }
+        ];
+
+        // --- 3. LÓGICA DO CLIENTE ---
+        let cart = [];
+
+        function renderMenu() {
+            const container = document.getElementById('menu-container');
+            container.innerHTML = menuData.map((cat, i) => `
+                <div class="mb-6 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="bg-gray-50 p-4 border-b flex justify-between items-center">
+                        <h3 class="font-bold text-lg text-hit-blue">${cat.category}</h3>
+                        <i class="fas fa-chevron-down text-gray-300"></i>
+                    </div>
+                    <div class="divide-y divide-gray-100">
+                        ${cat.items.map((item, j) => `
+                            <div class="p-4 flex justify-between items-start hover:bg-gray-50 transition">
+                                <div class="flex-1 pr-4">
+                                    <h4 class="font-bold text-gray-800">${item.name}</h4>
+                                    ${item.desc ? `<p class="text-sm text-gray-500 mt-1 leading-snug">${item.desc}</p>` : ''}
+                                    <p class="text-hit-blue font-bold mt-2">${formatMoney(item.price)}</p>
+                                </div>
+                                <button onclick="addToCart(${i}, ${j})" class="bg-hit-gold text-white w-8 h-8 rounded-full shadow flex items-center justify-center hover:bg-yellow-600 active:scale-90 transition">
+                                    <i class="fas fa-plus text-xs"></i>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addToCart(cIdx, iIdx) {
+            const item = menuData[cIdx].items[iIdx];
+            const existing = cart.find(x => x.name === item.name);
+            if(existing) existing.qty++; else cart.push({...item, qty:1});
+            updateCartUI();
+            
+            // Animação no botão do carrinho
+            const btn = document.querySelector('.fa-shopping-bag').parentElement;
+            btn.classList.add('bg-green-500', 'text-white');
+            setTimeout(() => btn.classList.remove('bg-green-500', 'text-white'), 200);
+        }
+
+        function updateCartUI() {
+            const count = cart.reduce((a,b) => a+b.qty, 0);
+            const badge = document.getElementById('cart-count');
+            badge.innerText = count;
+            badge.classList.toggle('hidden', count === 0);
+        }
+
+        function openCart() {
+            const container = document.getElementById('cart-items');
+            if(cart.length === 0) {
+                container.innerHTML = '<div class="text-center py-10 text-gray-400"><i class="fas fa-cookie-bite text-4xl mb-3"></i><p>Sua bandeja está vazia.</p></div>';
+            } else {
+                container.innerHTML = cart.map((item, idx) => `
+                    <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                        <div>
+                            <div class="font-bold text-gray-800">${item.name}</div>
+                            <div class="text-xs text-gray-500">${formatMoney(item.price)} un</div>
+                        </div>
+                        <div class="flex items-center bg-gray-100 rounded-lg">
+                            <button onclick="changeQty(${idx}, -1)" class="px-3 py-1 text-red-500 hover:bg-red-50 rounded-l-lg font-bold">-</button>
+                            <span class="w-8 text-center font-bold text-sm">${item.qty}</span>
+                            <button onclick="changeQty(${idx}, 1)" class="px-3 py-1 text-green-600 hover:bg-green-50 rounded-r-lg font-bold">+</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            const total = cart.reduce((a,b) => a+(b.price*b.qty), 0);
+            document.getElementById('cart-total').innerText = formatMoney(total);
+            document.getElementById('cart-modal').classList.remove('hidden');
+        }
+
+        function changeQty(idx, amount) {
+            cart[idx].qty += amount;
+            if(cart[idx].qty <= 0) cart.splice(idx, 1);
+            updateCartUI(); openCart();
+        }
+
+        function closeCart() { document.getElementById('cart-modal').classList.add('hidden'); }
+
+        function sendOrder() {
+            if(!db) return alert("Erro: Conexão com Firebase falhou.");
+            const name = document.getElementById('guest-name').value;
+            const room = document.getElementById('room-number').value;
+            const notes = document.getElementById('order-notes').value;
+
+            if(!name || !room || cart.length === 0) return alert("Preencha seu nome, quarto e adicione itens.");
+
+            const btn = document.querySelector('#order-form button');
+            const oldText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+            btn.disabled = true;
+
+            db.collection("orders").add({
+                guest: name, room: room, notes: notes,
+                items: cart,
+                total: cart.reduce((a,b) => a+(b.price*b.qty), 0),
+                status: 'pending',
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                alert("✅ Pedido recebido pela cozinha! Aguarde no seu quarto.");
+                cart = []; updateCartUI(); closeCart();
+                document.getElementById('order-form').reset();
+            }).catch(err => {
+                console.error(err);
+                alert("Erro ao enviar. Verifique a internet.");
+            })
+            .finally(() => { btn.innerHTML = oldText; btn.disabled = false; });
+        }
+
+        // --- 4. LÓGICA DO ADMIN (PEDIDOS + RELATÓRIOS) ---
+        let unsubscribe;
+
+        function toggleAdmin() {
+            const admin = document.getElementById('admin-view');
+            const guest = document.getElementById('guest-view');
+            
+            if(admin.classList.contains('hidden')) {
+                const pwd = prompt("Senha Master:");
+                if(pwd !== "ancoras2024") return alert("Senha incorreta"); 
+                
+                guest.classList.add('hidden');
+                admin.classList.remove('hidden');
+                switchAdminTab('orders'); 
+            } else {
+                guest.classList.remove('hidden');
+                admin.classList.add('hidden');
+                if(unsubscribe) unsubscribe();
+            }
+        }
+
+        function switchAdminTab(tab) {
+            const ordersSec = document.getElementById('section-orders');
+            const reportsSec = document.getElementById('section-reports');
+            const btnOrders = document.getElementById('tab-orders');
+            const btnReports = document.getElementById('tab-reports');
+
+            if (tab === 'orders') {
+                ordersSec.classList.remove('hidden');
+                reportsSec.classList.add('hidden');
+                btnOrders.className = "px-3 py-1 rounded bg-gray-600 text-white text-sm font-bold shadow";
+                btnReports.className = "px-3 py-1 rounded hover:bg-gray-700 text-gray-300 text-sm font-bold";
+                startOrderListener();
+            } else {
+                ordersSec.classList.add('hidden');
+                reportsSec.classList.remove('hidden');
+                btnOrders.className = "px-3 py-1 rounded hover:bg-gray-700 text-gray-300 text-sm font-bold";
+                btnReports.className = "px-3 py-1 rounded bg-blue-600 text-white text-sm font-bold shadow";
+                if(unsubscribe) unsubscribe(); 
+                loadReports(); 
+            }
+        }
+
+        // --- LISTENER DE PEDIDOS (KDS) ---
+        function startOrderListener() {
+            const list = document.getElementById('orders-list');
+            list.innerHTML = '<div class="col-span-full text-center py-4 text-gray-400">Conectando...</div>';
+            
+            // ATENÇÃO: Se travar aqui, é falta de índice no Firebase (Ver Console F12)
+            unsubscribe = db.collection("orders")
+                .where("status", "in", ["pending", "preparing"])
+                .orderBy("timestamp", "desc")
+                .onSnapshot(snap => {
+                    list.innerHTML = "";
+                    if(snap.empty) {
+                        list.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-20 text-gray-400"><i class="fas fa-check-double text-5xl mb-4 text-gray-200"></i><p>Cozinha em dia!</p></div>';
+                        return;
+                    }
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        const time = d.timestamp ? new Date(d.timestamp.toDate()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
+                        const isPending = d.status === 'pending';
+                        
+                        list.innerHTML += `
+                            <div class="bg-white rounded-lg shadow-md border-t-4 ${isPending ? 'border-red-500' : 'border-yellow-500'} p-4 relative fade-in">
+                                <div class="absolute top-2 right-2 text-xs font-mono text-gray-400 bg-gray-100 px-2 py-1 rounded">${time}</div>
+                                <div class="mb-3">
+                                    <span class="text-2xl font-bold text-gray-800">Qto ${d.room}</span>
+                                    <p class="text-sm text-gray-600 uppercase font-semibold">${d.guest}</p>
+                                </div>
+                                <ul class="space-y-2 mb-4 text-sm text-gray-700">
+                                    ${d.items.map(i => `<li class="flex justify-between border-b border-gray-100 pb-1"><span><b class="text-lg">${i.qty}x</b> ${i.name}</span></li>`).join('')}
+                                </ul>
+                                ${d.notes ? `<div class="bg-red-50 text-red-700 p-2 rounded text-xs font-bold mb-3"><i class="fas fa-exclamation-triangle"></i> ${d.notes}</div>` : ''}
+                                <div class="flex gap-2">
+                                    ${isPending ? 
+                                        `<button onclick="setStatus('${doc.id}', 'preparing')" class="flex-1 bg-yellow-500 text-white py-2 rounded font-bold hover:bg-yellow-600">PREPARAR</button>` :
+                                        `<button class="flex-1 bg-gray-200 text-gray-400 py-2 rounded font-bold cursor-not-allowed">NO FOGO</button>`
+                                    }
+                                    <button onclick="setStatus('${doc.id}', 'completed')" class="flex-1 bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">PRONTO</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                });
+        }
+
+        function setStatus(id, status) {
+            db.collection("orders").doc(id).update({status: status});
+        }
+
+        // --- SISTEMA DE RELATÓRIOS ---
+        async function loadReports() {
+            document.getElementById('sales-today').innerText = "...";
+            
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            
+            const firstDayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+            const snap = await db.collection("orders").orderBy("timestamp", "desc").limit(300).get();
+            
+            let totalToday = 0, countToday = 0;
+            let totalMonth = 0, countMonth = 0;
+            let productCount = {};
+            let hoursCount = Array(24).fill(0);
+
+            snap.forEach(doc => {
+                const d = doc.data();
+                if(!d.timestamp) return;
+                const date = d.timestamp.toDate();
+                
+                if (date >= firstDayMonth) { totalMonth += d.total; countMonth++; }
+                if (date >= today) { totalToday += d.total; countToday++; }
+
+                d.items.forEach(item => {
+                    productCount[item.name] = (productCount[item.name] || 0) + item.qty;
+                });
+
+                hoursCount[date.getHours()]++;
+            });
+
+            document.getElementById('sales-today').innerText = formatMoney(totalToday);
+            document.getElementById('orders-count-today').innerText = `${countToday} pedidos hoje`;
+            document.getElementById('sales-month').innerText = formatMoney(totalMonth);
+            
+            const ticket = countMonth > 0 ? (totalMonth / countMonth) : 0;
+            document.getElementById('avg-ticket').innerText = formatMoney(ticket);
+
+            const sortedProducts = Object.entries(productCount).sort((a,b) => b[1] - a[1]).slice(0, 5);
+            const rankingHTML = sortedProducts.map(([name, qty], index) => `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-gray-400 w-4">#${index+1}</span>
+                        <span class="text-sm font-medium text-gray-700">${name}</span>
+                    </div>
+                    <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">${qty}</span>
+                </div>
+            `).join('');
+            document.getElementById('top-products-list').innerHTML = rankingHTML || '<p class="text-gray-400 text-sm">Sem dados.</p>';
+
+            const maxOrders = Math.max(...hoursCount) || 1;
+            const hoursChartHTML = hoursCount.slice(14, 23).map((count) => {
+                const height = (count / maxOrders) * 100;
+                return `
+                    <div class="flex flex-col items-center justify-end w-full h-full group relative">
+                        <div class="bg-blue-400 w-3/4 rounded-t hover:bg-blue-600 transition" style="height: ${height || 5}%"></div>
+                        <div class="absolute -top-6 bg-gray-800 text-white text-xs px-1 rounded opacity-0 group-hover:opacity-100 transition">${count}</div>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('peak-hours-chart').innerHTML = hoursChartHTML;
+        }
+
+        function formatMoney(val) { return val.toLocaleString('pt-BR', {style:'currency', currency:'BRL'}); }
+        document.addEventListener('DOMContentLoaded', renderMenu);
+
+    </script>
+</body>
+</html>
