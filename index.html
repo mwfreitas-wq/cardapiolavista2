@@ -1,157 +1,187 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Room Service - Hit Hotel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Room Service - La Vista</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <script>
+        tailwind.config = {
+            theme: {
+                fontFamily: { 'sans': ['Roboto'], 'display': ['Oswald'] },
+                extend: { colors: { brand: { dark: '#121212', card: '#1e1e1e', accent: '#facc15', muted: '#a3a3a3' } } }
+            }
+        }
+    </script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0f172a; color: #334155; }
-        
-        /* Cores Hit Hotel */
-        .bg-hit-blue { background-color: #003366; }
-        .text-hit-blue { color: #003366; }
-        .bg-hit-gold { background-color: #c5a059; }
-        .text-hit-gold { color: #c5a059; }
-
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
+        body { background-color: #121212; color: #e5e5e5; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+        img.error-image { content: url('https://placehold.co/300x200/333/999?text=Sem+Foto'); }
     </style>
 </head>
-<body class="bg-gray-100 pb-20">
+<body class="antialiased pb-24">
 
-    <div class="fixed bottom-2 right-2 z-50 opacity-30 hover:opacity-100 transition">
-        <button onclick="toggleAdmin()" class="bg-gray-800 text-white px-3 py-1 rounded text-xs shadow-lg">Admin</button>
+    <div class="fixed bottom-4 right-4 z-50 opacity-30 hover:opacity-100 transition">
+        <button onclick="toggleAdmin()" class="bg-brand-card border border-brand-accent/30 text-brand-accent px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+            <i class="fas fa-lock text-[10px] mr-1"></i> Admin
+        </button>
     </div>
 
     <div id="guest-view">
-        <header class="bg-hit-blue text-white shadow-xl sticky top-0 z-40 border-b-4 border-hit-gold">
-            <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+        <header class="bg-brand-dark border-b-2 border-brand-accent shadow-2xl sticky top-0 z-40">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
                 <div class="flex items-center gap-3">
-                    <div class="bg-white p-1 rounded">
-                        <i class="fas fa-hotel text-hit-blue text-2xl"></i>
+                    <div class="h-12 w-12 bg-brand-accent rounded-xl flex items-center justify-center shadow-lg -rotate-3">
+                        <i class="fas fa-concierge-bell text-brand-dark text-2xl"></i>
                     </div>
                     <div>
-                        <h1 class="font-bold text-xl leading-none">HIT HOTEL</h1>
-                        <p class="text-xs text-gray-300">Room Service • 14h às 21h</p>
+                        <h1 class="font-display font-bold text-2xl text-white tracking-wide leading-none">LA VISTA</h1>
+                        <p class="text-brand-accent text-sm font-medium tracking-wider">ROOM SERVICE</p>
                     </div>
                 </div>
-                <button onclick="openCart()" class="relative p-2 bg-white text-hit-blue rounded-full shadow hover:bg-gray-100 transition">
-                    <i class="fas fa-shopping-bag text-xl"></i>
-                    <span id="cart-count" class="absolute -top-1 -right-1 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full hidden">0</span>
+                <button onclick="openCart()" class="relative bg-brand-card p-3 rounded-xl text-brand-accent shadow-xl border border-brand-accent/20">
+                    <i class="fas fa-shopping-cart text-xl"></i>
+                    <span id="cart-count" class="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold h-5 w-5 flex items-center justify-center rounded-full hidden">0</span>
                 </button>
             </div>
         </header>
-
-        <main class="container mx-auto px-3 py-6 max-w-md" id="menu-container">
-            <div class="text-center py-10 text-gray-500">Carregando cardápio...</div>
-        </main>
+        <main class="container mx-auto px-3 py-6 max-w-2xl" id="menu-container"></main>
     </div>
 
-    <div id="cart-modal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center">
-        <div class="bg-white w-full max-w-md h-[90vh] sm:h-auto sm:rounded-xl rounded-t-3xl shadow-2xl flex flex-col animate-[slideUp_0.3s_ease-out]">
-            <div class="bg-hit-blue text-white p-5 rounded-t-3xl flex justify-between items-center">
-                <h3 class="font-bold text-lg">Seu Pedido</h3>
-                <button onclick="closeCart()" class="hover:text-gray-300"><i class="fas fa-times text-xl"></i></button>
+    <div id="cart-modal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center">
+        <div class="bg-brand-dark w-full max-w-md h-[95vh] sm:h-auto sm:rounded-2xl rounded-t-3xl shadow-2xl border-t-2 border-brand-accent flex flex-col fade-in">
+            <div class="bg-brand-card p-5 flex justify-between items-center border-b border-white/10">
+                <h3 class="font-display font-bold text-xl text-white tracking-wider">SEU PEDIDO</h3>
+                <button onclick="closeCart()" class="text-white hover:text-brand-accent"><i class="fas fa-times text-xl"></i></button>
             </div>
-            
-            <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50"></div>
-            
-            <div class="border-t p-5 bg-white shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-                <div class="flex justify-between font-bold text-xl text-hit-blue mb-4">
-                    <span>Total:</span> <span id="cart-total">R$ 0,00</span>
+            <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3 bg-[#151515]"></div>
+            <div id="combo-error" class="hidden bg-red-900/50 border-l-4 border-red-500 text-red-200 p-3 text-xs mx-4 mt-2">
+                <i class="fas fa-exclamation-triangle mr-1"></i> <b>Atenção:</b> A batata promocional (R$15) só é válida acompanhada de um hambúrguer.
+            </div>
+            <div class="p-5 bg-brand-card border-t border-white/10">
+                <div class="flex justify-between items-end mb-4">
+                    <span class="text-brand-muted">Total:</span>
+                    <span id="cart-total" class="font-display font-bold text-3xl text-brand-accent">R$ 0,00</span>
                 </div>
                 <form id="order-form" onsubmit="event.preventDefault(); sendOrder();" class="space-y-3">
-                    <div class="grid grid-cols-3 gap-3">
-                        <input type="text" id="guest-name" placeholder="Nome" required class="col-span-2 w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-hit-blue outline-none">
-                        <input type="number" id="room-number" placeholder="Quarto" required class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-hit-blue outline-none">
-                    </div>
-                    <textarea id="order-notes" placeholder="Observações (ex: ponto da carne, sem cebola...)" class="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-hit-blue outline-none" rows="2"></textarea>
-                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-green-700 transition transform active:scale-95 flex justify-center items-center gap-2">
-                        <span>CONFIRMAR PEDIDO</span> <i class="fas fa-check-circle"></i>
+                    <input type="text" id="guest-name" placeholder="Nome do Hóspede" required class="w-full bg-brand-dark border border-white/10 p-3 rounded-xl text-white outline-none focus:border-brand-accent">
+                    <input type="number" id="room-number" placeholder="Número do Quarto" required class="w-full bg-brand-dark border border-white/10 p-3 rounded-xl text-white outline-none focus:border-brand-accent">
+                    <textarea id="order-notes" placeholder="Observações..." class="w-full bg-brand-dark border border-white/10 p-3 rounded-xl text-white outline-none focus:border-brand-accent h-20 resize-none"></textarea>
+                    <button type="submit" id="btn-checkout" class="w-full bg-brand-accent text-brand-dark font-bold text-lg py-4 rounded-xl shadow-lg hover:bg-yellow-400 transition disabled:opacity-50">
+                        CONFIRMAR PEDIDO <i class="fas fa-paper-plane ml-2"></i>
                     </button>
                 </form>
             </div>
         </div>
     </div>
 
-    <div id="admin-view" class="hidden min-h-screen bg-gray-100 pb-10">
+    <div id="admin-view" class="hidden min-h-screen bg-gray-100 text-gray-800 font-sans">
         <header class="bg-gray-900 text-white p-4 shadow-lg sticky top-0 z-40">
             <div class="container mx-auto flex justify-between items-center">
                 <div class="flex items-center gap-4">
-                    <h1 class="font-bold text-xl">Gestão Hit Hotel</h1>
-                    <nav class="flex bg-gray-800 rounded-lg p-1">
-                        <button onclick="switchAdminTab('orders')" id="tab-orders" class="px-3 py-1 rounded bg-gray-600 text-white text-sm font-bold shadow">Pedidos</button>
-                        <button onclick="switchAdminTab('reports')" id="tab-reports" class="px-3 py-1 rounded hover:bg-gray-700 text-gray-300 text-sm font-bold">Relatórios</button>
+                    <h1 class="font-bold text-xl"><i class="fas fa-chart-pie text-brand-accent mr-2"></i>Gestão La Vista</h1>
+                    <nav class="flex bg-gray-800 rounded p-1 gap-1">
+                        <button onclick="switchTab('kds')" id="btn-kds" class="px-4 py-1 rounded bg-brand-accent text-gray-900 font-bold text-sm">Cozinha (KDS)</button>
+                        <button onclick="switchTab('dashboard')" id="btn-dash" class="px-4 py-1 rounded text-gray-400 hover:text-white font-bold text-sm">Relatórios</button>
                     </nav>
                 </div>
-                <button onclick="toggleAdmin()" class="text-sm text-gray-400 hover:text-white"><i class="fas fa-sign-out-alt"></i> Sair</button>
+                <button onclick="toggleAdmin()" class="bg-gray-700 px-3 py-1 rounded text-sm hover:bg-red-600">Sair</button>
             </div>
         </header>
 
-        <main class="container mx-auto p-4 max-w-5xl">
+        <main class="container mx-auto p-4 max-w-6xl">
             
-            <div id="section-orders">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-fire mr-2 text-orange-500"></i>Fila de Produção</h2>
-                    <span id="live-indicator" class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full animate-pulse">● Ao Vivo</span>
+            <div id="tab-kds">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold text-gray-700">Fila de Pedidos</h2>
+                    <div class="flex gap-4 text-sm font-bold">
+                        <span class="flex items-center"><div class="w-3 h-3 bg-red-500 rounded-full mr-2"></div> Pendente</span>
+                        <span class="flex items-center"><div class="w-3 h-3 bg-yellow-400 rounded-full mr-2"></div> Preparando</span>
+                        <span class="flex items-center"><div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div> Pronto</span>
+                    </div>
                 </div>
                 <div id="orders-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div class="text-center text-gray-500 col-span-full py-10">Aguardando novos pedidos...</div>
+                    <p class="col-span-full text-center py-20 text-gray-400">Aguardando pedidos...</p>
                 </div>
             </div>
 
-            <div id="section-reports" class="hidden space-y-6">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-xl font-bold text-gray-800"><i class="fas fa-chart-line mr-2 text-blue-600"></i>Desempenho</h2>
-                    <button onclick="loadReports()" class="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"><i class="fas fa-sync-alt"></i> Atualizar</button>
+            <div id="tab-dashboard" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-blue-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-bold text-gray-400 uppercase">Vendas Hoje</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stat-total">R$ 0,00</h3>
+                            </div>
+                            <i class="fas fa-dollar-sign text-blue-200 text-4xl"></i>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2" id="stat-count">0 pedidos realizados</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-green-500">
+                         <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-bold text-gray-400 uppercase">Ticket Médio</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stat-ticket">R$ 0,00</h3>
+                            </div>
+                            <i class="fas fa-receipt text-green-200 text-4xl"></i>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Média por cliente</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-purple-500">
+                         <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-xs font-bold text-gray-400 uppercase">Tempo Médio</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="stat-time">-- min</h3>
+                            </div>
+                            <i class="fas fa-stopwatch text-purple-200 text-4xl"></i>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Preparo até entrega</p>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-green-500">
-                        <p class="text-sm text-gray-500 font-bold uppercase">Hoje</p>
-                        <h3 class="text-3xl font-bold text-gray-800" id="sales-today">R$ 0,00</h3>
-                        <p class="text-xs text-gray-400 mt-1" id="orders-count-today">0 pedidos</p>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-blue-500">
-                        <p class="text-sm text-gray-500 font-bold uppercase">Mês Atual</p>
-                        <h3 class="text-3xl font-bold text-gray-800" id="sales-month">R$ 0,00</h3>
-                        <p class="text-xs text-gray-400 mt-1">Acumulado</p>
-                    </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-purple-500">
-                        <p class="text-sm text-gray-500 font-bold uppercase">Ticket Médio</p>
-                        <h3 class="text-3xl font-bold text-gray-800" id="avg-ticket">R$ 0,00</h3>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-white p-5 rounded-xl shadow-sm">
-                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">🏆 Mais Vendidos</h3>
-                        <div id="top-products-list" class="space-y-3">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">🏆 Produtos Mais Vendidos</h3>
+                        <div id="top-products" class="space-y-3">
                             <p class="text-gray-400 text-sm">Carregando dados...</p>
                         </div>
                     </div>
-                    <div class="bg-white p-5 rounded-xl shadow-sm">
-                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">⏰ Horários de Pico (14h-22h)</h3>
-                        <div id="peak-hours-chart" class="flex items-end justify-between h-40 pt-4 space-x-1"></div>
-                        <div class="flex justify-between text-xs text-gray-400 mt-2 px-1">
-                            <span>14h</span><span>16h</span><span>18h</span><span>20h</span><span>22h</span>
+                    <div class="bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="font-bold text-gray-700 mb-4 border-b pb-2">📊 Histórico Recente</h3>
+                        <div class="overflow-y-auto h-64 text-sm">
+                            <table class="w-full text-left">
+                                <thead class="text-gray-400 bg-gray-50 sticky top-0">
+                                    <tr><th class="p-2">Hora</th><th class="p-2">Quarto</th><th class="p-2">Total</th></tr>
+                                </thead>
+                                <tbody id="history-table" class="divide-y">
+                                    </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
+                <div class="text-center">
+                    <button onclick="loadReports()" class="bg-brand-accent text-brand-dark px-6 py-2 rounded font-bold shadow hover:bg-yellow-400">
+                        <i class="fas fa-sync-alt mr-2"></i> Atualizar Dados
+                    </button>
+                </div>
             </div>
-
         </main>
     </div>
 
     <script>
-        // --- 1. CONFIGURAÇÃO FIREBASE (ATUALIZADA) ---
+        // --- CONFIGURAÇÃO FIREBASE (COLE SUAS CHAVES AQUI) ---
         const firebaseConfig = {
             apiKey: "AIzaSyCdOqHyZNpPdvZC1RD9_OuSJeBHwPxjovQ",
             authDomain: "cardapio-hit-hotel.firebaseapp.com",
@@ -162,342 +192,287 @@
         };
 
         let db;
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            console.log("Firebase conectado!");
-        } catch (e) {
-            console.error("Erro ao conectar Firebase:", e);
-            alert("Erro de conexão. Verifique o console.");
-        }
+        try { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } catch (e) { console.error(e); }
 
-        // --- 2. CARDÁPIO HIT HOTEL ---
+        // --- DADOS DO CARDÁPIO ---
+        const burgerNames = ["La Vista Burguer", "Brioche 3 Queijos", "Brioche Frango & Páprica", "Clássico La Vista", "Frango Fresco"];
         const menuData = [
-            {
-                category: "Lanches",
-                items: [
-                    { name: "Misto Quente", desc: "Pão de forma com presunto e queijo, levemente tostado.", price: 14.90 },
-                    { name: "Sanduíche Natural", desc: "Pão integral, frango desfiado, cenoura, alface, pickles e maionese light.", price: 18.90 },
-                    { name: "X Burguer", desc: "Pão brioche, hambúrguer artesanal 120g, queijo, alface, tomate e pickles.", price: 35.90 },
-                    { name: "X Frango", desc: "Pão brioche, hambúrguer de frango artesanal 120g, queijo, alface, tomate e pickles.", price: 29.90 },
-                    { name: "X Bacon", desc: "Pão brioche, hambúrguer 120g, bacon, queijo, alface, tomate e pickles.", price: 40.90 },
-                    { name: "X Salada", desc: "Pão brioche, hambúrguer 120g, presunto, queijo, alface, tomate e pickles.", price: 38.90 },
-                    { name: "X Egg", desc: "Pão brioche, hambúrguer 120g, ovo, presunto, queijo, alface, tomate e pickles.", price: 40.90 }
-                ]
-            },
-            {
-                category: "Pratos e Porções",
-                items: [
-                    { name: "Sopa com Torradas", desc: "Opções rotativas de sopas artesanais, servidas com torradas.", price: 18.90 },
-                    { name: "Batata Frita", desc: "Porção individual ou para compartilhar.", price: 15.90 }
-                ]
-            },
-            {
-                category: "Pizzas Individuais (20cm)",
-                items: [
-                    { name: "Pizza Calabresa (20cm)", desc: "Mussarela, calabresa fatiada e cebola.", price: 30.00 },
-                    { name: "Pizza Mussarela (20cm)", desc: "Queijo mussarela e orégano.", price: 30.00 },
-                    { name: "Pizza Marguerita (20cm)", desc: "Mussarela, tomate e manjericão.", price: 30.00 }
-                ]
-            },
-            {
-                category: "Pizzas Médias (30cm)",
-                items: [
-                    { name: "Pizza Calabresa (30cm)", desc: "Mussarela, calabresa fatiada e cebola.", price: 55.00 },
-                    { name: "Pizza Mussarela (30cm)", desc: "Queijo mussarela e orégano.", price: 55.00 },
-                    { name: "Pizza Marguerita (30cm)", desc: "Mussarela, tomate e manjericão.", price: 55.00 }
-                ]
-            },
-            {
-                category: "Bebidas",
-                items: [
-                    { name: "Água Mineral 1.5L", price: 9.00 },
-                    { name: "Água Mineral 500ml", price: 7.00 },
-                    { name: "Água com Gás 500ml", price: 7.00 },
-                    { name: "Água Tônica 350ml", price: 8.00 },
-                    { name: "H2O 500ml", price: 8.00 },
-                    { name: "Chá Ice Tea Leão", price: 8.00 },
-                    { name: "Suco Natural One", price: 7.00 },
-                    { name: "Suco Del Valle Lata", price: 7.00 },
-                    { name: "Refrigerante 350ml", price: 8.00 },
-                    { name: "Cerveja Heineken 350ml", price: 12.00 },
-                    { name: "Cerveja Amstel 350ml", price: 10.00 },
-                    { name: "Schweppes 350ml", price: 8.00 },
-                    { name: "Smirnoff Ice", price: 10.00 },
-                    { name: "Whey Protein 250ml", price: 10.00 },
-                    { name: "Red Bull 269ml", price: 15.00 },
-                    { name: "Chocolate Betânia Kids", price: 4.00 }
-                ]
-            }
+            { category: "Sanduíches & Burgers", icon: "fa-burger", items: [
+                { name: "La Vista Burguer", desc: "Pão brioche, Crispy de Bacon.", price: 39.90, image: "img/burguer-lavista.jpg" },
+                { name: "Brioche 3 Queijos", desc: "Hambúrguer 120g, molho 3 queijos.", price: 34.90, image: "img/burguer-3queijos.jpg" },
+                { name: "Combo La Vista", desc: "Adicione Batata Frita ao seu Lanche.", price: 15.00, image: "img/combo.jpg" },
+                { name: "Brioche Frango & Páprica", desc: "Frango, molho 3 queijos.", price: 29.90, image: "img/burguer-frango.jpg" },
+                { name: "Clássico La Vista", desc: "Misto quente artesanal.", price: 15.90, image: "img/misto.jpg" },
+                { name: "Frango Fresco", desc: "Natural no Sourdough integral.", price: 24.90, image: "img/natural.jpg" }
+            ]},
+            { category: "Pizzas (20cm & 30cm)", icon: "fa-pizza-slice", items: [
+                { name: "Mussarela (20cm)", desc: "Individual.", price: 30.00, image: "img/pizza-mussarela.jpg" },
+                { name: "Mussarela (30cm)", desc: "Média.", price: 55.55, image: "img/pizza-mussarela.jpg" },
+                { name: "Calabresa (20cm)", desc: "Individual.", price: 30.00, image: "img/pizza-calabresa.jpg" },
+                { name: "Calabresa (30cm)", desc: "Média.", price: 55.55, image: "img/pizza-calabresa.jpg" },
+                { name: "Marguerita (20cm)", desc: "Individual.", price: 30.00, image: "img/pizza-marguerita.jpg" },
+                { name: "Marguerita (30cm)", desc: "Média.", price: 55.55, image: "img/pizza-marguerita.jpg" }
+            ]},
+            { category: "Sopas & Massas", icon: "fa-bowl-food", items: [
+                { name: "Nhoque Napolitano", desc: "Molho sugo artesanal.", price: 29.90, image: "img/nhoque.jpg" },
+                { name: "Creme de Cebola", desc: "Com croutons e torrada.", price: 20.90, image: "img/sopa.jpg" },
+                { name: "Batata Frita", desc: "Porção 250g.", price: 19.90, image: "img/batata.jpg" }
+            ]},
+            { category: "Bebidas", icon: "fa-cocktail", items: [
+                { name: "Caipirinha", price: 20.00, image: "img/caipirinha.jpg" },
+                { name: "Caipifruta", price: 22.20, image: "img/caipifruta.jpg" },
+                { name: "Frupiroska", price: 30.00, image: "img/frupiroska.jpg" },
+                { name: "Cuba Libre", price: 25.00, image: "img/cuba-libre.jpg" },
+                { name: "Heineken 350ml", price: 14.00, image: "img/cerveja.jpg" },
+                { name: "Água Mineral", price: 5.00, image: "img/agua.jpg" },
+                { name: "Refrigerante", price: 7.00, image: "img/refri.jpg" }
+            ]}
         ];
 
-        // --- 3. LÓGICA DO CLIENTE ---
         let cart = [];
 
+        // --- FUNÇÕES DE INTERFACE DO HÓSPEDE ---
         function renderMenu() {
             const container = document.getElementById('menu-container');
             container.innerHTML = menuData.map((cat, i) => `
-                <div class="mb-6 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div class="bg-gray-50 p-4 border-b flex justify-between items-center">
-                        <h3 class="font-bold text-lg text-hit-blue">${cat.category}</h3>
-                        <i class="fas fa-chevron-down text-gray-300"></i>
-                    </div>
-                    <div class="divide-y divide-gray-100">
+                <details class="group mb-4 bg-brand-card rounded-2xl shadow-lg border border-white/5 overflow-hidden open:border-brand-accent/30" ${i<2?'open':''}>
+                    <summary class="flex justify-between items-center p-4 cursor-pointer bg-white/5 hover:bg-white/10 select-none">
+                        <div class="flex items-center gap-3"><i class="fas ${cat.icon} text-brand-accent text-xl w-8 text-center"></i><h2 class="font-display font-bold text-xl text-white tracking-wide">${cat.category}</h2></div>
+                        <i class="fas fa-chevron-down text-brand-muted group-open:rotate-180 transition-transform"></i>
+                    </summary>
+                    <div class="p-2 grid grid-cols-1 md:grid-cols-2 gap-3 bg-brand-dark/50">
                         ${cat.items.map((item, j) => `
-                            <div class="p-4 flex justify-between items-start hover:bg-gray-50 transition">
-                                <div class="flex-1 pr-4">
-                                    <h4 class="font-bold text-gray-800">${item.name}</h4>
-                                    ${item.desc ? `<p class="text-sm text-gray-500 mt-1 leading-snug">${item.desc}</p>` : ''}
-                                    <p class="text-hit-blue font-bold mt-2">${formatMoney(item.price)}</p>
+                            <div class="flex bg-brand-card rounded-xl overflow-hidden shadow-md border border-white/5 hover:border-brand-accent/50 h-28">
+                                <div class="w-28 h-full bg-gray-800"><img src="${item.image}" onerror="this.classList.add('error-image')" class="w-full h-full object-cover"></div>
+                                <div class="flex-1 p-3 flex flex-col justify-between">
+                                    <div><h3 class="font-bold text-white text-sm leading-tight">${item.name}</h3>${item.desc?`<p class="text-xs text-brand-muted line-clamp-2 mt-1">${item.desc}</p>`:''}</div>
+                                    <div class="flex justify-between items-end"><span class="font-display font-bold text-xl text-brand-accent">${formatMoney(item.price)}</span><button onclick="addToCart(${i},${j})" class="bg-brand-accent text-brand-dark w-8 h-8 rounded-lg flex items-center justify-center hover:bg-yellow-300 shadow"><i class="fas fa-plus"></i></button></div>
                                 </div>
-                                <button onclick="addToCart(${i}, ${j})" class="bg-hit-gold text-white w-8 h-8 rounded-full shadow flex items-center justify-center hover:bg-yellow-600 active:scale-90 transition">
-                                    <i class="fas fa-plus text-xs"></i>
-                                </button>
                             </div>
                         `).join('')}
                     </div>
-                </div>
+                </details>
             `).join('');
         }
 
-        function addToCart(cIdx, iIdx) {
-            const item = menuData[cIdx].items[iIdx];
-            const existing = cart.find(x => x.name === item.name);
-            if(existing) existing.qty++; else cart.push({...item, qty:1});
-            updateCartUI();
-            
-            // Animação no botão do carrinho
-            const btn = document.querySelector('.fa-shopping-bag').parentElement;
-            btn.classList.add('bg-green-500', 'text-white');
-            setTimeout(() => btn.classList.remove('bg-green-500', 'text-white'), 200);
+        function addToCart(c, i) {
+            const item = menuData[c].items[i];
+            const ex = cart.find(x => x.name === item.name);
+            if(ex) ex.qty++; else cart.push({...item, qty:1});
+            updateCart();
         }
-
-        function updateCartUI() {
-            const count = cart.reduce((a,b) => a+b.qty, 0);
+        function updateCart() {
+            const count = cart.reduce((a,b)=>a+b.qty,0);
             const badge = document.getElementById('cart-count');
-            badge.innerText = count;
-            badge.classList.toggle('hidden', count === 0);
+            badge.innerText = count; badge.classList.toggle('hidden', count === 0);
+            validateCombo();
         }
-
         function openCart() {
-            const container = document.getElementById('cart-items');
-            if(cart.length === 0) {
-                container.innerHTML = '<div class="text-center py-10 text-gray-400"><i class="fas fa-cookie-bite text-4xl mb-3"></i><p>Sua bandeja está vazia.</p></div>';
-            } else {
-                container.innerHTML = cart.map((item, idx) => `
-                    <div class="flex justify-between items-center bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
-                        <div>
-                            <div class="font-bold text-gray-800">${item.name}</div>
-                            <div class="text-xs text-gray-500">${formatMoney(item.price)} un</div>
-                        </div>
-                        <div class="flex items-center bg-gray-100 rounded-lg">
-                            <button onclick="changeQty(${idx}, -1)" class="px-3 py-1 text-red-500 hover:bg-red-50 rounded-l-lg font-bold">-</button>
-                            <span class="w-8 text-center font-bold text-sm">${item.qty}</span>
-                            <button onclick="changeQty(${idx}, 1)" class="px-3 py-1 text-green-600 hover:bg-green-50 rounded-r-lg font-bold">+</button>
-                        </div>
+            const list = document.getElementById('cart-items');
+            list.innerHTML = cart.length ? cart.map((x, i) => `
+                <div class="flex items-center bg-brand-card p-3 rounded-xl border border-white/5">
+                    <div class="flex-1"><h4 class="font-bold text-white text-sm">${x.name}</h4><div class="text-brand-accent text-xs">${formatMoney(x.price)}</div></div>
+                    <div class="flex items-center bg-brand-dark rounded border border-white/10">
+                        <button onclick="qty(${i},-1)" class="w-8 h-8 text-brand-muted hover:text-white">-</button><span class="text-white text-sm font-bold">${x.qty}</span><button onclick="qty(${i},1)" class="w-8 h-8 text-brand-muted hover:text-white">+</button>
                     </div>
-                `).join('');
-            }
-            const total = cart.reduce((a,b) => a+(b.price*b.qty), 0);
-            document.getElementById('cart-total').innerText = formatMoney(total);
+                </div>`).join('') : '<div class="text-center py-10 text-brand-muted opacity-50"><p>Carrinho vazio</p></div>';
+            document.getElementById('cart-total').innerText = formatMoney(cart.reduce((a,b)=>a+(b.price*b.qty),0));
             document.getElementById('cart-modal').classList.remove('hidden');
+            validateCombo();
         }
-
-        function changeQty(idx, amount) {
-            cart[idx].qty += amount;
-            if(cart[idx].qty <= 0) cart.splice(idx, 1);
-            updateCartUI(); openCart();
-        }
-
+        function qty(i,d) { cart[i].qty+=d; if(cart[i].qty<=0) cart.splice(i,1); openCart(); updateCart(); }
         function closeCart() { document.getElementById('cart-modal').classList.add('hidden'); }
 
+        function validateCombo() {
+            const hasCombo = cart.some(i => i.name === "Combo La Vista");
+            const hasBurger = cart.some(i => burgerNames.includes(i.name));
+            const err = document.getElementById('combo-error');
+            const btn = document.getElementById('btn-checkout');
+            if(hasCombo && !hasBurger) { err.classList.remove('hidden'); btn.disabled = true; return false; }
+            err.classList.add('hidden'); btn.disabled = false; return true;
+        }
+
         function sendOrder() {
-            if(!db) return alert("Erro: Conexão com Firebase falhou.");
+            if(!validateCombo()) return;
             const name = document.getElementById('guest-name').value;
             const room = document.getElementById('room-number').value;
-            const notes = document.getElementById('order-notes').value;
+            if(!name || !room) return alert("Preencha Nome e Quarto!");
+            if(cart.length===0) return alert("Carrinho vazio!");
 
-            if(!name || !room || cart.length === 0) return alert("Preencha seu nome, quarto e adicione itens.");
-
-            const btn = document.querySelector('#order-form button');
-            const oldText = btn.innerHTML;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
-            btn.disabled = true;
+            const btn = document.getElementById('btn-checkout');
+            btn.innerHTML = 'Enviando...'; btn.disabled = true;
 
             db.collection("orders").add({
-                guest: name, room: room, notes: notes,
+                guest: name, room: room,
+                notes: document.getElementById('order-notes').value,
                 items: cart,
-                total: cart.reduce((a,b) => a+(b.price*b.qty), 0),
+                total: cart.reduce((a,b)=>a+(b.price*b.qty),0),
                 status: 'pending',
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                completedAt: null // Novo campo para relatórios
             }).then(() => {
-                alert("✅ Pedido recebido pela cozinha! Aguarde no seu quarto.");
-                cart = []; updateCartUI(); closeCart();
-                document.getElementById('order-form').reset();
-            }).catch(err => {
-                console.error(err);
-                alert("Erro ao enviar. Verifique a internet.");
-            })
-            .finally(() => { btn.innerHTML = oldText; btn.disabled = false; });
+                alert("✅ Pedido Enviado!"); cart=[]; updateCart(); closeCart(); document.getElementById('order-form').reset();
+            }).catch(e=>alert(e)).finally(() => { btn.innerHTML = 'CONFIRMAR PEDIDO'; btn.disabled = false; });
         }
 
-        // --- 4. LÓGICA DO ADMIN (PEDIDOS + RELATÓRIOS) ---
-        let unsubscribe;
+        // --- FUNÇÕES ADMIN (ERP + KDS) ---
+        let adminUnsub;
 
         function toggleAdmin() {
-            const admin = document.getElementById('admin-view');
-            const guest = document.getElementById('guest-view');
+            const a = document.getElementById('admin-view'), g = document.getElementById('guest-view');
+            if(a.classList.contains('hidden')) {
+                if(prompt("Senha:")!=="master") return alert("Senha incorreta");
+                g.classList.add('hidden'); a.classList.remove('hidden'); switchTab('kds');
+            } else {
+                g.classList.remove('hidden'); a.classList.add('hidden'); if(adminUnsub) adminUnsub();
+            }
+        }
+
+        function switchTab(tab) {
+            document.getElementById('tab-kds').classList.toggle('hidden', tab!=='kds');
+            document.getElementById('tab-dashboard').classList.toggle('hidden', tab!=='dashboard');
             
-            if(admin.classList.contains('hidden')) {
-                const pwd = prompt("Senha Master:");
-                if(pwd !== "ancoras2024") return alert("Senha incorreta"); 
-                
-                guest.classList.add('hidden');
-                admin.classList.remove('hidden');
-                switchAdminTab('orders'); 
+            const btnKds = document.getElementById('btn-kds');
+            const btnDash = document.getElementById('btn-dash');
+
+            if(tab === 'kds') {
+                btnKds.className = "px-4 py-1 rounded bg-brand-accent text-gray-900 font-bold text-sm";
+                btnDash.className = "px-4 py-1 rounded text-gray-400 hover:text-white font-bold text-sm";
+                startKDS();
             } else {
-                guest.classList.remove('hidden');
-                admin.classList.add('hidden');
-                if(unsubscribe) unsubscribe();
+                btnDash.className = "px-4 py-1 rounded bg-brand-accent text-gray-900 font-bold text-sm";
+                btnKds.className = "px-4 py-1 rounded text-gray-400 hover:text-white font-bold text-sm";
+                if(adminUnsub) adminUnsub();
+                loadReports();
             }
         }
 
-        function switchAdminTab(tab) {
-            const ordersSec = document.getElementById('section-orders');
-            const reportsSec = document.getElementById('section-reports');
-            const btnOrders = document.getElementById('tab-orders');
-            const btnReports = document.getElementById('tab-reports');
-
-            if (tab === 'orders') {
-                ordersSec.classList.remove('hidden');
-                reportsSec.classList.add('hidden');
-                btnOrders.className = "px-3 py-1 rounded bg-gray-600 text-white text-sm font-bold shadow";
-                btnReports.className = "px-3 py-1 rounded hover:bg-gray-700 text-gray-300 text-sm font-bold";
-                startOrderListener();
-            } else {
-                ordersSec.classList.add('hidden');
-                reportsSec.classList.remove('hidden');
-                btnOrders.className = "px-3 py-1 rounded hover:bg-gray-700 text-gray-300 text-sm font-bold";
-                btnReports.className = "px-3 py-1 rounded bg-blue-600 text-white text-sm font-bold shadow";
-                if(unsubscribe) unsubscribe(); 
-                loadReports(); 
-            }
-        }
-
-        // --- LISTENER DE PEDIDOS (KDS) ---
-        function startOrderListener() {
+        // --- LÓGICA DO QUADRO KDS (COZINHA) ---
+        function startKDS() {
             const list = document.getElementById('orders-list');
-            list.innerHTML = '<div class="col-span-full text-center py-4 text-gray-400">Conectando...</div>';
-            
-            // ATENÇÃO: Se travar aqui, é falta de índice no Firebase (Ver Console F12)
-            unsubscribe = db.collection("orders")
-                .where("status", "in", ["pending", "preparing"])
-                .orderBy("timestamp", "desc")
-                .onSnapshot(snap => {
-                    list.innerHTML = "";
-                    if(snap.empty) {
-                        list.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center py-20 text-gray-400"><i class="fas fa-check-double text-5xl mb-4 text-gray-200"></i><p>Cozinha em dia!</p></div>';
-                        return;
+            // Busca 'ready' também para o efeito de sumir depois
+            adminUnsub = db.collection("orders").where("status", "in", ["pending", "preparing", "ready"])
+                .orderBy("timestamp", "asc").onSnapshot(snap => {
+                list.innerHTML = "";
+                if(snap.empty) { list.innerHTML = '<p class="col-span-full text-center text-gray-400 py-10">Tudo limpo!</p>'; return; }
+                
+                snap.forEach(doc => {
+                    const d = doc.data();
+                    
+                    // Lógica de Auto-Hide: Se for 'ready' e completado há mais de 60s, não mostra
+                    if (d.status === 'ready' && d.completedAt) {
+                        const now = new Date();
+                        const doneTime = d.completedAt.toDate();
+                        const diffSeconds = (now - doneTime) / 1000;
+                        if (diffSeconds > 60) return; // Pula este pedido
                     }
-                    snap.forEach(doc => {
-                        const d = doc.data();
-                        const time = d.timestamp ? new Date(d.timestamp.toDate()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
-                        const isPending = d.status === 'pending';
-                        
-                        list.innerHTML += `
-                            <div class="bg-white rounded-lg shadow-md border-t-4 ${isPending ? 'border-red-500' : 'border-yellow-500'} p-4 relative fade-in">
-                                <div class="absolute top-2 right-2 text-xs font-mono text-gray-400 bg-gray-100 px-2 py-1 rounded">${time}</div>
-                                <div class="mb-3">
-                                    <span class="text-2xl font-bold text-gray-800">Qto ${d.room}</span>
-                                    <p class="text-sm text-gray-600 uppercase font-semibold">${d.guest}</p>
-                                </div>
-                                <ul class="space-y-2 mb-4 text-sm text-gray-700">
-                                    ${d.items.map(i => `<li class="flex justify-between border-b border-gray-100 pb-1"><span><b class="text-lg">${i.qty}x</b> ${i.name}</span></li>`).join('')}
-                                </ul>
-                                ${d.notes ? `<div class="bg-red-50 text-red-700 p-2 rounded text-xs font-bold mb-3"><i class="fas fa-exclamation-triangle"></i> ${d.notes}</div>` : ''}
-                                <div class="flex gap-2">
-                                    ${isPending ? 
-                                        `<button onclick="setStatus('${doc.id}', 'preparing')" class="flex-1 bg-yellow-500 text-white py-2 rounded font-bold hover:bg-yellow-600">PREPARAR</button>` :
-                                        `<button class="flex-1 bg-gray-200 text-gray-400 py-2 rounded font-bold cursor-not-allowed">NO FOGO</button>`
-                                    }
-                                    <button onclick="setStatus('${doc.id}', 'completed')" class="flex-1 bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">PRONTO</button>
-                                </div>
+
+                    // Cores do Status
+                    let borderClass = 'border-red-500 bg-red-50';
+                    let statusText = 'PENDENTE';
+                    if (d.status === 'preparing') { borderClass = 'border-yellow-400 bg-yellow-50'; statusText = 'PREPARANDO'; }
+                    if (d.status === 'ready') { borderClass = 'border-green-500 bg-green-50 opacity-75'; statusText = 'PRONTO (Saindo...)'; }
+
+                    // Cálculo do Tempo de Espera
+                    const time = d.timestamp ? d.timestamp.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
+
+                    list.innerHTML += `
+                        <div class="p-4 rounded-lg shadow-md border-l-8 ${borderClass} relative fade-in">
+                            <div class="absolute top-2 right-2 font-mono text-xs text-gray-500 bg-white px-2 rounded border">
+                                <i class="far fa-clock"></i> ${time}
                             </div>
-                        `;
-                    });
+                            <div class="font-bold text-2xl text-gray-800 mb-1">Qto ${d.room}</div>
+                            <div class="text-sm text-gray-600 font-bold uppercase mb-3">${d.guest}</div>
+                            
+                            <ul class="text-sm space-y-2 mb-4">
+                                ${d.items.map(i => `<li class="border-b border-gray-200 pb-1 flex justify-between"><span>${i.name}</span> <span class="font-bold">x${i.qty}</span></li>`).join('')}
+                            </ul>
+                            
+                            ${d.notes ? `<div class="bg-red-100 text-red-800 p-2 rounded text-xs font-bold mb-3"><i class="fas fa-comment"></i> ${d.notes}</div>` : ''}
+                            
+                            <div class="flex gap-2 mt-auto">
+                                ${d.status === 'pending' ? 
+                                    `<button onclick="updateStatus('${doc.id}', 'preparing')" class="flex-1 bg-yellow-400 text-yellow-900 py-2 rounded font-bold hover:bg-yellow-500 shadow">PREPARAR</button>` : ''}
+                                ${d.status === 'preparing' ? 
+                                    `<button onclick="updateStatus('${doc.id}', 'ready')" class="flex-1 bg-green-500 text-white py-2 rounded font-bold hover:bg-green-600 shadow">CONCLUIR</button>` : ''}
+                                ${d.status === 'ready' ? 
+                                    `<div class="flex-1 text-center font-bold text-green-700 py-2"><i class="fas fa-check-circle"></i> ENTREGUE</div>` : ''}
+                            </div>
+                        </div>
+                    `;
                 });
+            });
         }
 
-        function setStatus(id, status) {
-            db.collection("orders").doc(id).update({status: status});
+        function updateStatus(id, status) {
+            const data = { status: status };
+            if (status === 'ready') {
+                data.completedAt = firebase.firestore.FieldValue.serverTimestamp();
+            }
+            db.collection("orders").doc(id).update(data);
         }
 
-        // --- SISTEMA DE RELATÓRIOS ---
+        // --- LÓGICA DE RELATÓRIOS (DASHBOARD) ---
         async function loadReports() {
-            document.getElementById('sales-today').innerText = "...";
-            
+            // Pegar inicio do dia
             const today = new Date();
             today.setHours(0,0,0,0);
             
-            const firstDayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            // Buscar TODOS os pedidos de hoje (não importa o status)
+            const snap = await db.collection("orders")
+                .where("timestamp", ">=", today)
+                .orderBy("timestamp", "desc")
+                .get();
 
-            const snap = await db.collection("orders").orderBy("timestamp", "desc").limit(300).get();
-            
-            let totalToday = 0, countToday = 0;
-            let totalMonth = 0, countMonth = 0;
-            let productCount = {};
-            let hoursCount = Array(24).fill(0);
+            let totalSales = 0;
+            let totalOrders = 0;
+            let productCounts = {};
+            let totalServiceTime = 0; // em minutos
+            let completedOrdersCount = 0;
+            const historyTable = document.getElementById('history-table');
+            historyTable.innerHTML = "";
 
             snap.forEach(doc => {
                 const d = doc.data();
-                if(!d.timestamp) return;
-                const date = d.timestamp.toDate();
-                
-                if (date >= firstDayMonth) { totalMonth += d.total; countMonth++; }
-                if (date >= today) { totalToday += d.total; countToday++; }
+                totalSales += d.total;
+                totalOrders++;
 
-                d.items.forEach(item => {
-                    productCount[item.name] = (productCount[item.name] || 0) + item.qty;
+                // Contagem de Produtos
+                d.items.forEach(i => {
+                    productCounts[i.name] = (productCounts[i.name] || 0) + i.qty;
                 });
 
-                hoursCount[date.getHours()]++;
+                // Cálculo de Tempo (Se completado)
+                if (d.completedAt && d.timestamp) {
+                    const diffMs = d.completedAt.toDate() - d.timestamp.toDate();
+                    totalServiceTime += (diffMs / 1000 / 60); // minutos
+                    completedOrdersCount++;
+                }
+
+                // Tabela Histórico
+                const time = d.timestamp.toDate().toLocaleTimeString([],{hour:'2-digit', minute:'2-digit'});
+                historyTable.innerHTML += `<tr><td class="p-2 border-b">${time}</td><td class="p-2 border-b font-bold">Qto ${d.room}</td><td class="p-2 border-b text-green-600">${formatMoney(d.total)}</td></tr>`;
             });
 
-            document.getElementById('sales-today').innerText = formatMoney(totalToday);
-            document.getElementById('orders-count-today').innerText = `${countToday} pedidos hoje`;
-            document.getElementById('sales-month').innerText = formatMoney(totalMonth);
+            // Atualizar Cards
+            document.getElementById('stat-total').innerText = formatMoney(totalSales);
+            document.getElementById('stat-count').innerText = `${totalOrders} pedidos hoje`;
             
-            const ticket = countMonth > 0 ? (totalMonth / countMonth) : 0;
-            document.getElementById('avg-ticket').innerText = formatMoney(ticket);
+            const avgTicket = totalOrders ? (totalSales / totalOrders) : 0;
+            document.getElementById('stat-ticket').innerText = formatMoney(avgTicket);
 
-            const sortedProducts = Object.entries(productCount).sort((a,b) => b[1] - a[1]).slice(0, 5);
-            const rankingHTML = sortedProducts.map(([name, qty], index) => `
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <span class="font-bold text-gray-400 w-4">#${index+1}</span>
-                        <span class="text-sm font-medium text-gray-700">${name}</span>
-                    </div>
-                    <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded-full">${qty}</span>
-                </div>
-            `).join('');
-            document.getElementById('top-products-list').innerHTML = rankingHTML || '<p class="text-gray-400 text-sm">Sem dados.</p>';
+            const avgTime = completedOrdersCount ? Math.round(totalServiceTime / completedOrdersCount) : 0;
+            document.getElementById('stat-time').innerText = `${avgTime} min`;
 
-            const maxOrders = Math.max(...hoursCount) || 1;
-            const hoursChartHTML = hoursCount.slice(14, 23).map((count) => {
-                const height = (count / maxOrders) * 100;
-                return `
-                    <div class="flex flex-col items-center justify-end w-full h-full group relative">
-                        <div class="bg-blue-400 w-3/4 rounded-t hover:bg-blue-600 transition" style="height: ${height || 5}%"></div>
-                        <div class="absolute -top-6 bg-gray-800 text-white text-xs px-1 rounded opacity-0 group-hover:opacity-100 transition">${count}</div>
-                    </div>
-                `;
-            }).join('');
-            document.getElementById('peak-hours-chart').innerHTML = hoursChartHTML;
+            // Atualizar Ranking
+            const sorted = Object.entries(productCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+            document.getElementById('top-products').innerHTML = sorted.map(([k,v], i) => 
+                `<div class="flex justify-between items-center"><div class="flex items-center gap-2"><span class="font-bold text-gray-400">#${i+1}</span> <span>${k}</span></div><span class="bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full text-xs">${v}</span></div>`
+            ).join('') || '<p class="text-gray-400 text-sm">Sem dados.</p>';
         }
 
-        function formatMoney(val) { return val.toLocaleString('pt-BR', {style:'currency', currency:'BRL'}); }
+        function formatMoney(v) { return v.toLocaleString('pt-BR', {style:'currency', currency:'BRL'}); }
         document.addEventListener('DOMContentLoaded', renderMenu);
-
     </script>
 </body>
 </html>
