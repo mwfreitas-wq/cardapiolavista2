@@ -65,9 +65,11 @@
                 <button onclick="closeCart()" class="text-white hover:text-brand-accent"><i class="fas fa-times text-xl"></i></button>
             </div>
             <div id="cart-items" class="flex-1 overflow-y-auto p-4 space-y-3 bg-[#151515]"></div>
+            
             <div id="combo-error" class="hidden bg-red-900/50 border-l-4 border-red-500 text-red-200 p-3 text-xs mx-4 mt-2">
                 <i class="fas fa-exclamation-triangle mr-1"></i> <b>Atenção:</b> A batata promocional (R$15) só é válida acompanhada de um hambúrguer.
             </div>
+
             <div class="p-5 bg-brand-card border-t border-white/10">
                 <div class="flex justify-between items-end mb-4">
                     <span class="text-brand-muted">Total:</span>
@@ -181,7 +183,7 @@
     </div>
 
     <script>
-        // --- CONFIGURAÇÃO FIREBASE (COLE SUAS CHAVES AQUI) ---
+        // --- 1. SUA CONFIGURAÇÃO ESTÁ AQUI (JÁ PREENCHIDA) ---
         const firebaseConfig = {
             apiKey: "AIzaSyCdOqHyZNpPdvZC1RD9_OuSJeBHwPxjovQ",
             authDomain: "cardapio-hit-hotel.firebaseapp.com",
@@ -191,10 +193,11 @@
             appId: "1:107290897891:web:380ef50a89c27aae1e44d6"
         };
 
+        // --- INICIALIZAÇÃO DO BANCO ---
         let db;
         try { firebase.initializeApp(firebaseConfig); db = firebase.firestore(); } catch (e) { console.error(e); }
 
-        // --- DADOS DO CARDÁPIO ---
+        // --- DADOS DO CARDÁPIO E FOTOS (PREÇOS ATUALIZADOS) ---
         const burgerNames = ["La Vista Burguer", "Brioche 3 Queijos", "Brioche Frango & Páprica", "Clássico La Vista", "Frango Fresco"];
         const menuData = [
             { category: "Sanduíches & Burgers", icon: "fa-burger", items: [
@@ -207,11 +210,11 @@
             ]},
             { category: "Pizzas (20cm & 30cm)", icon: "fa-pizza-slice", items: [
                 { name: "Mussarela (20cm)", desc: "Individual.", price: 30.00, image: "img/pizza-mussarela.jpg" },
-                { name: "Mussarela (30cm)", desc: "Média.", price: 55.55, image: "img/pizza-mussarela.jpg" },
+                { name: "Mussarela (30cm)", desc: "Média.", price: 55.00, image: "img/pizza-mussarela.jpg" },
                 { name: "Calabresa (20cm)", desc: "Individual.", price: 30.00, image: "img/pizza-calabresa.jpg" },
-                { name: "Calabresa (30cm)", desc: "Média.", price: 55.55, image: "img/pizza-calabresa.jpg" },
+                { name: "Calabresa (30cm)", desc: "Média.", price: 55.00, image: "img/pizza-calabresa.jpg" },
                 { name: "Marguerita (20cm)", desc: "Individual.", price: 30.00, image: "img/pizza-marguerita.jpg" },
-                { name: "Marguerita (30cm)", desc: "Média.", price: 55.55, image: "img/pizza-marguerita.jpg" }
+                { name: "Marguerita (30cm)", desc: "Média.", price: 55.00, image: "img/pizza-marguerita.jpg" }
             ]},
             { category: "Sopas & Massas", icon: "fa-bowl-food", items: [
                 { name: "Nhoque Napolitano", desc: "Molho sugo artesanal.", price: 29.90, image: "img/nhoque.jpg" },
@@ -220,12 +223,12 @@
             ]},
             { category: "Bebidas", icon: "fa-cocktail", items: [
                 { name: "Caipirinha", price: 20.00, image: "img/caipirinha.jpg" },
-                { name: "Caipifruta", price: 22.20, image: "img/caipifruta.jpg" },
+                { name: "Caipifruta", price: 22.00, image: "img/caipifruta.jpg" },
                 { name: "Frupiroska", price: 30.00, image: "img/frupiroska.jpg" },
                 { name: "Cuba Libre", price: 25.00, image: "img/cuba-libre.jpg" },
                 { name: "Heineken 350ml", price: 14.00, image: "img/cerveja.jpg" },
-                { name: "Água Mineral", price: 5.00, image: "img/agua.jpg" },
-                { name: "Refrigerante", price: 7.00, image: "img/refri.jpg" }
+                { name: "Água Mineral", price: 7.00, image: "img/agua.jpg" },
+                { name: "Refrigerante", price: 8.00, image: "img/refri.jpg" }
             ]}
         ];
 
@@ -309,7 +312,7 @@
                 total: cart.reduce((a,b)=>a+(b.price*b.qty),0),
                 status: 'pending',
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                completedAt: null // Novo campo para relatórios
+                completedAt: null
             }).then(() => {
                 alert("✅ Pedido Enviado!"); cart=[]; updateCart(); closeCart(); document.getElementById('order-form').reset();
             }).catch(e=>alert(e)).finally(() => { btn.innerHTML = 'CONFIRMAR PEDIDO'; btn.disabled = false; });
@@ -350,7 +353,6 @@
         // --- LÓGICA DO QUADRO KDS (COZINHA) ---
         function startKDS() {
             const list = document.getElementById('orders-list');
-            // Busca 'ready' também para o efeito de sumir depois
             adminUnsub = db.collection("orders").where("status", "in", ["pending", "preparing", "ready"])
                 .orderBy("timestamp", "asc").onSnapshot(snap => {
                 list.innerHTML = "";
@@ -359,44 +361,34 @@
                 snap.forEach(doc => {
                     const d = doc.data();
                     
-                    // Lógica de Auto-Hide: Se for 'ready' e completado há mais de 60s, não mostra
+                    // Auto-Hide após 60s se estiver pronto
                     if (d.status === 'ready' && d.completedAt) {
                         const now = new Date();
                         const doneTime = d.completedAt.toDate();
                         const diffSeconds = (now - doneTime) / 1000;
-                        if (diffSeconds > 60) return; // Pula este pedido
+                        if (diffSeconds > 60) return;
                     }
 
-                    // Cores do Status
+                    // Status Visual
                     let borderClass = 'border-red-500 bg-red-50';
-                    let statusText = 'PENDENTE';
-                    if (d.status === 'preparing') { borderClass = 'border-yellow-400 bg-yellow-50'; statusText = 'PREPARANDO'; }
-                    if (d.status === 'ready') { borderClass = 'border-green-500 bg-green-50 opacity-75'; statusText = 'PRONTO (Saindo...)'; }
+                    if (d.status === 'preparing') borderClass = 'border-yellow-400 bg-yellow-50';
+                    if (d.status === 'ready') borderClass = 'border-green-500 bg-green-50 opacity-75';
 
-                    // Cálculo do Tempo de Espera
                     const time = d.timestamp ? d.timestamp.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '--:--';
 
                     list.innerHTML += `
                         <div class="p-4 rounded-lg shadow-md border-l-8 ${borderClass} relative fade-in">
-                            <div class="absolute top-2 right-2 font-mono text-xs text-gray-500 bg-white px-2 rounded border">
-                                <i class="far fa-clock"></i> ${time}
-                            </div>
+                            <div class="absolute top-2 right-2 font-mono text-xs text-gray-500 bg-white px-2 rounded border"><i class="far fa-clock"></i> ${time}</div>
                             <div class="font-bold text-2xl text-gray-800 mb-1">Qto ${d.room}</div>
                             <div class="text-sm text-gray-600 font-bold uppercase mb-3">${d.guest}</div>
-                            
                             <ul class="text-sm space-y-2 mb-4">
                                 ${d.items.map(i => `<li class="border-b border-gray-200 pb-1 flex justify-between"><span>${i.name}</span> <span class="font-bold">x${i.qty}</span></li>`).join('')}
                             </ul>
-                            
                             ${d.notes ? `<div class="bg-red-100 text-red-800 p-2 rounded text-xs font-bold mb-3"><i class="fas fa-comment"></i> ${d.notes}</div>` : ''}
-                            
                             <div class="flex gap-2 mt-auto">
-                                ${d.status === 'pending' ? 
-                                    `<button onclick="updateStatus('${doc.id}', 'preparing')" class="flex-1 bg-yellow-400 text-yellow-900 py-2 rounded font-bold hover:bg-yellow-500 shadow">PREPARAR</button>` : ''}
-                                ${d.status === 'preparing' ? 
-                                    `<button onclick="updateStatus('${doc.id}', 'ready')" class="flex-1 bg-green-500 text-white py-2 rounded font-bold hover:bg-green-600 shadow">CONCLUIR</button>` : ''}
-                                ${d.status === 'ready' ? 
-                                    `<div class="flex-1 text-center font-bold text-green-700 py-2"><i class="fas fa-check-circle"></i> ENTREGUE</div>` : ''}
+                                ${d.status === 'pending' ? `<button onclick="updateStatus('${doc.id}', 'preparing')" class="flex-1 bg-yellow-400 text-yellow-900 py-2 rounded font-bold hover:bg-yellow-500 shadow">PREPARAR</button>` : ''}
+                                ${d.status === 'preparing' ? `<button onclick="updateStatus('${doc.id}', 'ready')" class="flex-1 bg-green-500 text-white py-2 rounded font-bold hover:bg-green-600 shadow">CONCLUIR</button>` : ''}
+                                ${d.status === 'ready' ? `<div class="flex-1 text-center font-bold text-green-700 py-2"><i class="fas fa-check-circle"></i> ENTREGUE</div>` : ''}
                             </div>
                         </div>
                     `;
@@ -406,29 +398,16 @@
 
         function updateStatus(id, status) {
             const data = { status: status };
-            if (status === 'ready') {
-                data.completedAt = firebase.firestore.FieldValue.serverTimestamp();
-            }
+            if (status === 'ready') data.completedAt = firebase.firestore.FieldValue.serverTimestamp();
             db.collection("orders").doc(id).update(data);
         }
 
         // --- LÓGICA DE RELATÓRIOS (DASHBOARD) ---
         async function loadReports() {
-            // Pegar inicio do dia
-            const today = new Date();
-            today.setHours(0,0,0,0);
-            
-            // Buscar TODOS os pedidos de hoje (não importa o status)
-            const snap = await db.collection("orders")
-                .where("timestamp", ">=", today)
-                .orderBy("timestamp", "desc")
-                .get();
+            const today = new Date(); today.setHours(0,0,0,0);
+            const snap = await db.collection("orders").where("timestamp", ">=", today).orderBy("timestamp", "desc").get();
 
-            let totalSales = 0;
-            let totalOrders = 0;
-            let productCounts = {};
-            let totalServiceTime = 0; // em minutos
-            let completedOrdersCount = 0;
+            let totalSales = 0, totalOrders = 0, productCounts = {}, totalServiceTime = 0, completedOrdersCount = 0;
             const historyTable = document.getElementById('history-table');
             historyTable.innerHTML = "";
 
@@ -436,35 +415,20 @@
                 const d = doc.data();
                 totalSales += d.total;
                 totalOrders++;
-
-                // Contagem de Produtos
-                d.items.forEach(i => {
-                    productCounts[i.name] = (productCounts[i.name] || 0) + i.qty;
-                });
-
-                // Cálculo de Tempo (Se completado)
+                d.items.forEach(i => productCounts[i.name] = (productCounts[i.name] || 0) + i.qty);
                 if (d.completedAt && d.timestamp) {
-                    const diffMs = d.completedAt.toDate() - d.timestamp.toDate();
-                    totalServiceTime += (diffMs / 1000 / 60); // minutos
+                    totalServiceTime += ((d.completedAt.toDate() - d.timestamp.toDate()) / 1000 / 60);
                     completedOrdersCount++;
                 }
-
-                // Tabela Histórico
                 const time = d.timestamp.toDate().toLocaleTimeString([],{hour:'2-digit', minute:'2-digit'});
                 historyTable.innerHTML += `<tr><td class="p-2 border-b">${time}</td><td class="p-2 border-b font-bold">Qto ${d.room}</td><td class="p-2 border-b text-green-600">${formatMoney(d.total)}</td></tr>`;
             });
 
-            // Atualizar Cards
             document.getElementById('stat-total').innerText = formatMoney(totalSales);
             document.getElementById('stat-count').innerText = `${totalOrders} pedidos hoje`;
-            
-            const avgTicket = totalOrders ? (totalSales / totalOrders) : 0;
-            document.getElementById('stat-ticket').innerText = formatMoney(avgTicket);
+            document.getElementById('stat-ticket').innerText = formatMoney(totalOrders ? (totalSales / totalOrders) : 0);
+            document.getElementById('stat-time').innerText = `${completedOrdersCount ? Math.round(totalServiceTime / completedOrdersCount) : 0} min`;
 
-            const avgTime = completedOrdersCount ? Math.round(totalServiceTime / completedOrdersCount) : 0;
-            document.getElementById('stat-time').innerText = `${avgTime} min`;
-
-            // Atualizar Ranking
             const sorted = Object.entries(productCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
             document.getElementById('top-products').innerHTML = sorted.map(([k,v], i) => 
                 `<div class="flex justify-between items-center"><div class="flex items-center gap-2"><span class="font-bold text-gray-400">#${i+1}</span> <span>${k}</span></div><span class="bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full text-xs">${v}</span></div>`
